@@ -1,0 +1,23 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Trigger AI Code Review Bot
+        run: |
+          echo "AI Code Review triggered"
+          echo "Repository: ${{ github.repository }}"
+          echo "Pull Request: ${{ github.event.pull_request.number }}"
+
+
+
+          
