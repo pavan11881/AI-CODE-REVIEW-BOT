@@ -1,5 +1,8 @@
-def get_user(users, index):
-    return users[index]
+def calculate_average(total, count):
+    return total / count
 
-users = ["Sai", "John"]
-print(get_user(users, 5))
+
+total = 100
+count = 0
+
+print(calculate_average(total, count))
