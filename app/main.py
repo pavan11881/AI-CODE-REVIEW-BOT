@@ -2,6 +2,7 @@
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 
+from app.github_client import get_pull_request
 from app.review_service import review_pull_request
 from app.github_comments import (
     get_pull_request_comments,
@@ -38,6 +39,14 @@ def review_pull_request_endpoint(
     pull_number: int,
 ):
     try:
+        pull_request = get_pull_request(
+            owner,
+            repo,
+            pull_number,
+        )
+
+        commit_sha = pull_request["head"]["sha"]
+
         reviews = review_pull_request(
             owner,
             repo,
@@ -58,10 +67,12 @@ def review_pull_request_endpoint(
             pull_number,
         )
 
-        existing_ai_comments = {
+        review_marker = f"<!-- AI_REVIEW_COMMIT:{commit_sha} -->"
+
+        existing_ai_reviews = {
             comment["body"]
             for comment in existing_comments
-            if comment.get("body", "").startswith("## AI Code Review")
+            if review_marker in comment.get("body", "")
         }
 
         for item in reviews:
@@ -70,9 +81,11 @@ def review_pull_request_endpoint(
 ### File: `{item['filename']}`
 
 {item['review']}
+
+{review_marker}
 """
 
-            if comment in existing_ai_comments:
+            if comment in existing_ai_reviews:
                 continue
 
             result = post_pull_request_comment(
@@ -89,6 +102,7 @@ def review_pull_request_endpoint(
 
         return {
             "message": "Code review completed successfully.",
+            "commit_sha": commit_sha,
             "files_reviewed": len(reviews),
             "comments": comments,
         }
@@ -98,5 +112,3 @@ def review_pull_request_endpoint(
             status_code=500,
             detail=str(e),
         )
-        
-        
