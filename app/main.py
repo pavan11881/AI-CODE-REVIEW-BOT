@@ -1,10 +1,12 @@
-import os
 
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 
 from app.review_service import review_pull_request
-from app.github_comments import post_pull_request_comment
+from app.github_comments import (
+    get_pull_request_comments,
+    post_pull_request_comment,
+)
 
 load_dotenv()
 
@@ -50,6 +52,18 @@ def review_pull_request_endpoint(
 
         comments = []
 
+        existing_comments = get_pull_request_comments(
+            owner,
+            repo,
+            pull_number,
+        )
+
+        existing_ai_comments = {
+            comment["body"]
+            for comment in existing_comments
+            if comment.get("body", "").startswith("## AI Code Review")
+        }
+
         for item in reviews:
             comment = f"""## AI Code Review
 
@@ -57,6 +71,9 @@ def review_pull_request_endpoint(
 
 {item['review']}
 """
+
+            if comment in existing_ai_comments:
+                continue
 
             result = post_pull_request_comment(
                 owner,
@@ -81,8 +98,5 @@ def review_pull_request_endpoint(
             status_code=500,
             detail=str(e),
         )
-        
-        
-        
         
         
