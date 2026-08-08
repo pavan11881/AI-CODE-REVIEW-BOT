@@ -14,10 +14,4 @@ jobs:
 
       - name: Trigger AI Code Review Bot
         run: |
-          echo "AI Code Review triggered"
-          echo "Repository: ${{ github.repository }}"
-          echo "Pull Request: ${{ github.event.pull_request.number }}"
-
-
-
-          
+          curl -X POST "https://unswampy-unhewable-mauricio.ngrok-free.dev/review/${{ github.repository_owner }}/${{ github.event.repository.name }}/${{ github.event.pull_request.number }}" -H "accept: application/json"
