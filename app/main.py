@@ -1,4 +1,3 @@
-
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 
@@ -67,26 +66,30 @@ def review_pull_request_endpoint(
             pull_number,
         )
 
-        review_marker = f"<!-- AI_REVIEW_COMMIT:{commit_sha} -->"
-
-        existing_ai_reviews = {
-            comment["body"]
-            for comment in existing_comments
-            if review_marker in comment.get("body", "")
-        }
-
         for item in reviews:
+            filename = item["filename"]
+
+            review_marker = (
+                f"<!-- AI_REVIEW_COMMIT:{commit_sha} "
+                f"FILE:{filename} -->"
+            )
+
+            already_reviewed = any(
+                review_marker in comment.get("body", "")
+                for comment in existing_comments
+            )
+
+            if already_reviewed:
+                continue
+
             comment = f"""## AI Code Review
 
-### File: `{item['filename']}`
+### File: `{filename}`
 
 {item['review']}
 
 {review_marker}
 """
-
-            if comment in existing_ai_reviews:
-                continue
 
             result = post_pull_request_comment(
                 owner,
@@ -96,7 +99,7 @@ def review_pull_request_endpoint(
             )
 
             comments.append({
-                "filename": item["filename"],
+                "filename": filename,
                 "comment_url": result["html_url"],
             })
 
