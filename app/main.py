@@ -70,8 +70,8 @@ def review_pull_request_endpoint(
             filename = item["filename"]
 
             review_marker = (
-                f"<!-- AI_REVIEW_COMMIT:{commit_sha} "
-                f"FILE:{filename} -->"
+                f"AI_REVIEW_COMMIT: {commit_sha}\n"
+                f"AI_REVIEW_FILE: {filename}"
             )
 
             already_reviewed = any(
@@ -87,6 +87,9 @@ def review_pull_request_endpoint(
 ### File: `{filename}`
 
 {item['review']}
+
+---
+**Review metadata**
 
 {review_marker}
 """
