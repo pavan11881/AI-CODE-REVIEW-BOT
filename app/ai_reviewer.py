@@ -27,7 +27,11 @@ STRICT TECHNICAL RULES:
    - For a list of length 2, valid indexes are 0, 1, -1, and -2.
    - Do NOT describe a positive index such as 5 as a negative index.
    - Do NOT recommend changing a valid index to -1 unless that change is actually required by the intended behavior.
-6. For every exception you report, identify the exact operation that causes it.
+6. For every exception you report:
+   - Identify the exact operation that causes it.
+   - State the exact Python exception type.
+   - Explain the concrete runtime consequence.
+   - Do not use vague wording such as "unexpected results" when the code deterministically raises an exception.
 7. Do not report hypothetical problems without evidence from the code.
 8. Do not report performance issues unless there is a meaningful performance impact.
 9. Do not invent security vulnerabilities.
@@ -40,18 +44,21 @@ IMPORTANT PYTHON FACTS:
 - A list of length N has valid positive indexes from 0 to N-1.
 - Negative indexes count from the end.
 - For example:
-    items = ["A", "B"]
-    items[0]  -> "A"
-    items[1]  -> "B"
-    items[-1] -> "B"
-    items[-2] -> "A"
-    items[5]  -> IndexError
+  items = ["A", "B"]
+  items[0]  -> "A"
+  items[1]  -> "B"
+  items[-1] -> "B"
+  items[-2] -> "A"
+  items[5]  -> IndexError
 - "/" performs true division.
 - "//" performs floor division.
 - "/" and "//" are NOT interchangeable.
 - Division by zero using "/" raises ZeroDivisionError.
+- If the divisor can actually be zero based on the code shown, report the exact operation and state that Python raises ZeroDivisionError.
+- Do not describe an exception as producing an "incorrect value"; describe the actual runtime failure.
 
 Before producing a review, internally verify:
+
 - What the code actually does.
 - What values are actually passed.
 - What exception, if any, will actually occur.
@@ -94,9 +101,3 @@ Be concise and technically accurate.
     )
 
     return response["message"]["content"]
-
-
-
-
-
-
