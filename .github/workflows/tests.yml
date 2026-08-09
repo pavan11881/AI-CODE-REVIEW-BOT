@@ -18,5 +18,13 @@ jobs:
           echo "Triggering AI Code Review Bot"
           echo "Repository: $REPO"
           echo "Pull Request: $PR_NUMBER"
+
+          if [ -z "$AI_REVIEW_BOT_URL" ]; then
+            echo "ERROR: AI_REVIEW_BOT_URL is EMPTY"
+            exit 1
+          else
+            echo "AI_REVIEW_BOT_URL is SET"
+          fi
+
           curl -f -X POST \
             "$AI_REVIEW_BOT_URL/review/${REPO%/*}/${REPO#*/}/$PR_NUMBER"
