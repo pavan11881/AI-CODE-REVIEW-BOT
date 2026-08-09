@@ -15,7 +15,7 @@ jobs:
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          echo "Triggering AI Code Review Bot"
+          echo "AI Code Review triggered"
           echo "Repository: $REPO"
           echo "Pull Request: $PR_NUMBER"
 
