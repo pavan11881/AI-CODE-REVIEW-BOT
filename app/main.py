@@ -1,10 +1,12 @@
-import os
-
 from fastapi import FastAPI, HTTPException
 from dotenv import load_dotenv
 
+from app.github_client import get_pull_request
 from app.review_service import review_pull_request
-from app.github_comments import post_pull_request_comment
+from app.github_comments import (
+    get_pull_request_comments,
+    post_pull_request_comment,
+)
 
 load_dotenv()
 
@@ -36,6 +38,14 @@ def review_pull_request_endpoint(
     pull_number: int,
 ):
     try:
+        pull_request = get_pull_request(
+            owner,
+            repo,
+            pull_number,
+        )
+
+        commit_sha = pull_request["head"]["sha"]
+
         reviews = review_pull_request(
             owner,
             repo,
@@ -50,12 +60,38 @@ def review_pull_request_endpoint(
 
         comments = []
 
+        existing_comments = get_pull_request_comments(
+            owner,
+            repo,
+            pull_number,
+        )
+
         for item in reviews:
+            filename = item["filename"]
+
+            review_marker = (
+                f"AI_REVIEW_COMMIT: {commit_sha}\n"
+                f"AI_REVIEW_FILE: {filename}"
+            )
+
+            already_reviewed = any(
+                review_marker in comment.get("body", "")
+                for comment in existing_comments
+            )
+
+            if already_reviewed:
+                continue
+
             comment = f"""## AI Code Review
 
-### File: `{item['filename']}`
+### File: `{filename}`
 
 {item['review']}
+
+---
+**Review metadata**
+
+{review_marker}
 """
 
             result = post_pull_request_comment(
@@ -66,12 +102,13 @@ def review_pull_request_endpoint(
             )
 
             comments.append({
-                "filename": item["filename"],
+                "filename": filename,
                 "comment_url": result["html_url"],
             })
 
         return {
             "message": "Code review completed successfully.",
+            "commit_sha": commit_sha,
             "files_reviewed": len(reviews),
             "comments": comments,
         }
@@ -81,8 +118,3 @@ def review_pull_request_endpoint(
             status_code=500,
             detail=str(e),
         )
-        
-        
-        
-        
-        
