@@ -46,6 +46,7 @@ def review_pull_request_endpoint(
             owner,
             repo,
             pull_number,
+            commit_sha,
         )
 
         if not reviews:
