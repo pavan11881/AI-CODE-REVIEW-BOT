@@ -13,3 +13,4 @@ print("Average:", calculate_average(total, count))
 
 items = [10, 20, 30]
 print("Item:", get_item(items, 5))
+print("Testing second commit")
