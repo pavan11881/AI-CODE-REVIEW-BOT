@@ -70,13 +70,97 @@ def _detect_division_by_zero_risk(code: str) -> str | None:
     return None
 
 
+def _detect_obvious_index_error_risk(code: str) -> str | None:
+    """
+    Detect obvious constant list/tuple indexing errors.
+
+    This intentionally handles only cases that can be proven directly
+    from the source code. It does not attempt general static analysis.
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return None
+
+    known_lengths = {}
+
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Assign):
+            if len(node.targets) != 1:
+                continue
+
+            target = node.targets[0]
+
+            if not isinstance(target, ast.Name):
+                continue
+
+            value = node.value
+
+            if isinstance(value, (ast.List, ast.Tuple)):
+                known_lengths[target.id] = len(value.elts)
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Subscript):
+            continue
+
+        if not isinstance(node.value, ast.Name):
+            continue
+
+        collection_name = node.value.id
+
+        if collection_name not in known_lengths:
+            continue
+
+        index = node.slice
+
+        if isinstance(index, ast.Constant):
+            if isinstance(index.value, int):
+                length = known_lengths[collection_name]
+
+                if index.value >= length or index.value < -length:
+                    return (
+                        "### BUG\n\n"
+                        f"**Problem:** `{collection_name}[{index.value}]` "
+                        f"accesses an index outside the valid range for "
+                        f"a collection containing {length} elements.\n\n"
+                        "**Why it matters:** This will raise "
+                        "`IndexError` at runtime.\n\n"
+                        f"**Recommendation:** Use a valid index between "
+                        f"`0` and `{length - 1}`, or validate the index "
+                        "before accessing the collection."
+                    )
+
+    return None
+
+
 def review_code(code_diff: str) -> str:
     """
     Review changed code using deterministic checks and Ollama.
+
+    Deterministic checks take priority over the LLM because they provide
+    higher-confidence findings for problems that can be proven directly
+    from the source code.
     """
     code = _normalize_code(code_diff)
 
-    deterministic_review = _detect_division_by_zero_risk(code)
+    deterministic_reviews = []
+
+    division_review = _detect_division_by_zero_risk(code)
+
+    if division_review:
+        deterministic_reviews.append(division_review)
+
+    index_review = _detect_obvious_index_error_risk(code)
+
+    if index_review:
+        deterministic_reviews.append(index_review)
+
+    deterministic_review = "\n\n".join(deterministic_reviews)
+
+    # Deterministic findings are authoritative.
+    # Do not allow the LLM to override or distort a proven finding.
+    if deterministic_review:
+        return deterministic_review
 
     prompt = f"""
 You are a strict senior Python code reviewer.
@@ -86,28 +170,42 @@ Review ONLY the changed code below.
 CODE:
 {code_diff}
 
-CRITICAL PYTHON FACTS:
+Your job is to identify REAL, technically demonstrable problems.
 
-- Python true division uses `/`.
+CRITICAL RULES:
+
+- Never invent a bug.
+- Every reported BUG must be directly supported by the supplied code.
+- Do not report problems based on speculation.
+- Do not report hypothetical behavior that is not applicable to this code.
+- Do not criticize normal Python syntax or formatting as a runtime bug.
+- A normal newline at the end of a Python file is valid and is NOT a bug.
+- Do not claim that a trailing newline causes a syntax error.
+- Do not claim that an editor will execute a line differently because of a newline.
+- Do not invent interactions with editors, IDEs, terminals, or operating systems.
+- Do not report a bug merely because code could theoretically be improved.
+- Preserve the intended behavior of the program.
+- Distinguish actual runtime errors from style or documentation suggestions.
+
+IMPORTANT PYTHON SEMANTICS:
+
 - `a / 0` raises `ZeroDivisionError`.
 - `a / b` can raise `ZeroDivisionError` when `b == 0`.
-- Never claim that `/` avoids ZeroDivisionError.
-- Never call a division-by-zero problem an AttributeError.
-- Do not recommend replacing `/` with `//` unless integer floor division
-  is explicitly required.
-- `/` and `//` are NOT interchangeable.
-- Do not invent bugs.
-- Do not report hypothetical issues unless they directly apply to this code.
-- Preserve the intended behavior of the program.
+- `/` and `//` are not interchangeable.
+- `items[10]` raises `IndexError` when `items` contains fewer than 11 elements.
+- Accessing a list or tuple with an out-of-range constant index is a real runtime bug.
+- A newline at the end of a Python source file is valid.
 
-Review categories:
+REVIEW CATEGORIES:
 
 1. BUG
 2. SECURITY
 3. PERFORMANCE
 4. QUALITY
 
-For every real issue use:
+Only report an issue when there is sufficient evidence in the supplied code.
+
+For every real issue use exactly:
 
 ### CATEGORY
 
@@ -138,22 +236,9 @@ Be concise and technically accurate.
         ai_review = response["message"]["content"].strip()
 
     except Exception as e:
-        if deterministic_review:
-            return deterministic_review
-
         return (
             "AI REVIEW ERROR: "
             f"Ollama review failed: {e}"
-        )
-    if deterministic_review:
-        if ai_review == "No significant issues found.":
-            return deterministic_review
-
-        return (
-            f"{deterministic_review}\n\n"
-            "---\n\n"
-            "### AI Review\n\n"
-            f"{ai_review}"
         )
 
     return ai_review
