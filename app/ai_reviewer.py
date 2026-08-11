@@ -137,11 +137,30 @@ def review_code(code_diff: str) -> str:
     """
     Review changed code using deterministic checks and Ollama.
 
+    If full file content is supplied together with a Git diff,
+    deterministic checks analyze only the full file content.
+    The LLM still receives the complete review context.
+
     Deterministic checks take priority over the LLM because they provide
     higher-confidence findings for problems that can be proven directly
     from the source code.
     """
-    code = _normalize_code(code_diff)
+
+    if "FULL FILE CONTENT:" in code_diff and "CHANGED DIFF:" in code_diff:
+        full_file_code = code_diff.split(
+            "FULL FILE CONTENT:",
+            1,
+        )[1].split(
+            "CHANGED DIFF:",
+            1,
+        )[0].strip()
+
+        ai_input = code_diff
+        code = full_file_code
+
+    else:
+        ai_input = code_diff
+        code = _normalize_code(code_diff)
 
     deterministic_reviews = []
 
@@ -165,10 +184,12 @@ def review_code(code_diff: str) -> str:
     prompt = f"""
 You are a strict senior Python code reviewer.
 
-Review ONLY the changed code below.
+Review ONLY the changed code and the supplied review context.
 
-CODE:
-{code_diff}
+REVIEW CONTEXT:
+{ai_input}
+
+Your job is to identify REAL, technically demonstrable problems.
 
 CRITICAL RULES:
 
@@ -177,6 +198,15 @@ CRITICAL RULES:
 - Do not report problems based on speculation.
 - Do not report hypothetical behavior that is not applicable to this code.
 - Do not criticize normal Python syntax or formatting as a runtime bug.
+- A normal newline at the end of a Python file is valid and is NOT a bug.
+- Do not claim that a trailing newline causes a syntax error.
+- Do not claim that an editor will execute a line differently because of a newline.
+- Do not invent interactions with editors, IDEs, terminals, or operating systems.
+- Do not report a bug merely because code could theoretically be improved.
+- Preserve the intended behavior of the program.
+- Distinguish actual runtime errors from style or documentation suggestions.
+
+IMPORTANT PROJECT CONTEXT:
 
 - The supplied code may be only part of a larger project.
 - Do not assume that the supplied snippet is a complete program.
@@ -191,30 +221,17 @@ CRITICAL RULES:
   of a bug.
 - Do not invent missing imports or missing project context.
 
-- A normal newline at the end of a Python file is valid and is NOT a bug.
-- Do not claim that a trailing newline causes a syntax error.
-- Do not claim that an editor will execute a line differently because
-  of a newline.
-- Do not invent interactions with editors, IDEs, terminals, or operating
-  systems.
-
-- Do not report a bug merely because code could theoretically be improved.
-- Preserve the intended behavior of the program.
-- Distinguish actual runtime errors from style or documentation
-  suggestions.
-
 IMPORTANT PYTHON SEMANTICS:
 
 - `a / 0` raises `ZeroDivisionError`.
 - `a / b` can raise `ZeroDivisionError` when `b == 0`.
 - `/` and `//` are not interchangeable.
-- `items[10]` raises `IndexError` when `items` contains fewer than
-  11 elements.
-- Accessing a list or tuple with an out-of-range constant index is a
-  real runtime bug.
+- `items[10]` raises `IndexError` when `items` contains fewer than 11 elements.
+- Accessing a list or tuple with an out-of-range constant index is a real
+  runtime bug.
+- An undefined variable or function generally causes `NameError` at runtime,
+  not `SyntaxError`.
 - A newline at the end of a Python source file is valid.
-- An undefined variable or function generally causes `NameError` at
-  runtime, not `SyntaxError`.
 
 REVIEW CATEGORIES:
 
@@ -223,8 +240,7 @@ REVIEW CATEGORIES:
 3. PERFORMANCE
 4. QUALITY
 
-Only report an issue when there is sufficient evidence in the supplied
-code.
+Only report an issue when there is sufficient evidence in the supplied code.
 
 For every real issue use exactly:
 
