@@ -170,8 +170,6 @@ Review ONLY the changed code below.
 CODE:
 {code_diff}
 
-Your job is to identify REAL, technically demonstrable problems.
-
 CRITICAL RULES:
 
 - Never invent a bug.
@@ -179,22 +177,44 @@ CRITICAL RULES:
 - Do not report problems based on speculation.
 - Do not report hypothetical behavior that is not applicable to this code.
 - Do not criticize normal Python syntax or formatting as a runtime bug.
+
+- The supplied code may be only part of a larger project.
+- Do not assume that the supplied snippet is a complete program.
+- Functions, variables, classes, and imports may be defined elsewhere.
+- Never report a NameError merely because a function, variable, class,
+  or module is not defined in the supplied snippet.
+- Only report an undefined-name problem when the supplied code itself
+  clearly proves that the name cannot be resolved in the shown execution
+  context.
+- Do not call an undefined-name problem a SyntaxError.
+- A missing definition in an isolated snippet is not sufficient evidence
+  of a bug.
+- Do not invent missing imports or missing project context.
+
 - A normal newline at the end of a Python file is valid and is NOT a bug.
 - Do not claim that a trailing newline causes a syntax error.
-- Do not claim that an editor will execute a line differently because of a newline.
-- Do not invent interactions with editors, IDEs, terminals, or operating systems.
+- Do not claim that an editor will execute a line differently because
+  of a newline.
+- Do not invent interactions with editors, IDEs, terminals, or operating
+  systems.
+
 - Do not report a bug merely because code could theoretically be improved.
 - Preserve the intended behavior of the program.
-- Distinguish actual runtime errors from style or documentation suggestions.
+- Distinguish actual runtime errors from style or documentation
+  suggestions.
 
 IMPORTANT PYTHON SEMANTICS:
 
 - `a / 0` raises `ZeroDivisionError`.
 - `a / b` can raise `ZeroDivisionError` when `b == 0`.
 - `/` and `//` are not interchangeable.
-- `items[10]` raises `IndexError` when `items` contains fewer than 11 elements.
-- Accessing a list or tuple with an out-of-range constant index is a real runtime bug.
+- `items[10]` raises `IndexError` when `items` contains fewer than
+  11 elements.
+- Accessing a list or tuple with an out-of-range constant index is a
+  real runtime bug.
 - A newline at the end of a Python source file is valid.
+- An undefined variable or function generally causes `NameError` at
+  runtime, not `SyntaxError`.
 
 REVIEW CATEGORIES:
 
@@ -203,7 +223,8 @@ REVIEW CATEGORIES:
 3. PERFORMANCE
 4. QUALITY
 
-Only report an issue when there is sufficient evidence in the supplied code.
+Only report an issue when there is sufficient evidence in the supplied
+code.
 
 For every real issue use exactly:
 
