@@ -70,6 +70,3 @@ def test_review_skips_unsupported_files():
     assert result[0]["filename"] == "main.py"
     mock_review.assert_called_once()
     print("Testing second commit")
-
-items = [10, 20, 30]
-print(items[10])
