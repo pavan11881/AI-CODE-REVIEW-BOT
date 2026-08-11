@@ -12,8 +12,10 @@ jobs:
       - name: Trigger AI Code Review Bot
         env:
           AI_REVIEW_BOT_URL: ${{ secrets.AI_REVIEW_BOT_URL }}
+          AI_REVIEW_API_KEY: ${{ secrets.AI_REVIEW_API_KEY }}
           REPO: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+
         run: |
           echo "AI Code Review triggered"
           echo "Repository: $REPO"
@@ -26,5 +28,13 @@ jobs:
             echo "AI_REVIEW_BOT_URL is SET"
           fi
 
+          if [ -z "$AI_REVIEW_API_KEY" ]; then
+            echo "ERROR: AI_REVIEW_API_KEY is EMPTY"
+            exit 1
+          else
+            echo "AI_REVIEW_API_KEY is SET"
+          fi
+
           curl -f -X POST \
+            -H "Authorization: Bearer $AI_REVIEW_API_KEY" \
             "$AI_REVIEW_BOT_URL/review/${REPO%/*}/${REPO#*/}/$PR_NUMBER"

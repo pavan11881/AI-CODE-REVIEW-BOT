@@ -1,5 +1,8 @@
-from fastapi import FastAPI, HTTPException
+import os
+import secrets
+
 from dotenv import load_dotenv
+from fastapi import FastAPI, HTTPException, Header
 
 from app.github_client import get_pull_request
 from app.review_service import review_pull_request
@@ -17,6 +20,30 @@ app = FastAPI(
 )
 
 
+def verify_api_key(authorization: str | None = Header(default=None)):
+    expected_key = os.getenv("AI_REVIEW_API_KEY")
+
+    if not expected_key:
+        raise HTTPException(
+            status_code=500,
+            detail="AI_REVIEW_API_KEY is not configured",
+        )
+
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(
+            status_code=401,
+            detail="Missing or invalid authorization header",
+        )
+
+    provided_key = authorization.removeprefix("Bearer ").strip()
+
+    if not secrets.compare_digest(provided_key, expected_key):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid API key",
+        )
+
+
 @app.get("/")
 def root():
     return {"message": "AI Code Review Bot is running"}
@@ -32,7 +59,10 @@ def review_pull_request_endpoint(
     owner: str,
     repo: str,
     pull_number: int,
+    authorization: str | None = Header(default=None),
 ):
+    verify_api_key(authorization)
+
     try:
         pull_request = get_pull_request(
             owner,
@@ -46,6 +76,7 @@ def review_pull_request_endpoint(
             owner,
             repo,
             pull_number,
+            commit_sha,
         )
 
         if not reviews:
@@ -116,6 +147,9 @@ def review_pull_request_endpoint(
             "skipped_already_reviewed": len(skipped_files),
             "comments": comments,
         }
+
+    except HTTPException:
+        raise
 
     except Exception as e:
         raise HTTPException(

@@ -10,7 +10,6 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 if not GITHUB_TOKEN:
     raise RuntimeError("GITHUB_TOKEN is not configured")
 
-
 HEADERS = {
     "Accept": "application/vnd.github+json",
     "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -55,9 +54,17 @@ def get_pull_request_files(
     owner: str,
     repo: str,
     pull_number: int,
+    commit_sha: str | None = None,
 ):
     """
-    Get all files changed in a Pull Request.
+    Get files changed in a Pull Request or a specific commit.
+
+    If commit_sha is provided, only files changed in that commit
+    are returned.
+
+    If commit_sha is not provided, all files changed in the
+    Pull Request are returned.
+
     Handles GitHub API pagination.
     """
 
@@ -65,10 +72,16 @@ def get_pull_request_files(
     page = 1
 
     while True:
-        url = (
-            f"https://api.github.com/repos/"
-            f"{owner}/{repo}/pulls/{pull_number}/files"
-        )
+        if commit_sha:
+            url = (
+                f"https://api.github.com/repos/"
+                f"{owner}/{repo}/commits/{commit_sha}"
+            )
+        else:
+            url = (
+                f"https://api.github.com/repos/"
+                f"{owner}/{repo}/pulls/{pull_number}/files"
+            )
 
         try:
             response = httpx.get(
@@ -83,7 +96,12 @@ def get_pull_request_files(
 
             response.raise_for_status()
 
-            page_files = response.json()
+            data = response.json()
+
+            if commit_sha:
+                page_files = data.get("files", [])
+            else:
+                page_files = data
 
             if not page_files:
                 break

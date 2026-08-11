@@ -36,15 +36,17 @@ def review_pull_request(
     owner: str,
     repo: str,
     pull_number: int,
+    commit_sha: str,
 ):
     """
-    Review supported source files changed in the Pull Request.
+    Review supported source files changed in the specified commit.
     """
 
     files = get_pull_request_files(
         owner,
         repo,
         pull_number,
+        commit_sha,
     )
 
     reviews = []
@@ -54,19 +56,15 @@ def review_pull_request(
         patch = file.get("patch")
         status = file.get("status")
 
-        # Skip files without a filename.
         if not filename:
             continue
 
-        # Skip deleted files.
         if status == "removed":
             continue
 
-        # Skip unsupported file types.
         if not is_reviewable_file(filename):
             continue
 
-        # Skip files without a patch.
         if not patch:
             continue
 

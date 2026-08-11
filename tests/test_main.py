@@ -1,4 +1,7 @@
+import os
 from unittest.mock import patch
+
+os.environ["AI_REVIEW_API_KEY"] = "test-key"
 
 from fastapi.testclient import TestClient
 
@@ -58,7 +61,10 @@ def test_review_endpoint_posts_comment():
         return_value=mock_comment,
     ):
         response = client.post(
-            "/review/test-owner/test-repo/1"
+            "/review/test-owner/test-repo/1",
+            headers={
+                "Authorization": "Bearer test-key"
+            },
         )
 
     assert response.status_code == 200
@@ -115,7 +121,10 @@ def test_review_endpoint_skips_already_reviewed_file():
         "app.main.post_pull_request_comment",
     ) as mock_post:
         response = client.post(
-            "/review/test-owner/test-repo/1"
+            "/review/test-owner/test-repo/1",
+            headers={
+                "Authorization": "Bearer test-key"
+            },
         )
 
     assert response.status_code == 200
@@ -128,3 +137,26 @@ def test_review_endpoint_skips_already_reviewed_file():
     assert data["comments"] == []
 
     mock_post.assert_not_called()
+
+
+def test_review_endpoint_rejects_missing_api_key():
+    response = client.post(
+        "/review/test-owner/test-repo/1"
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == (
+        "Missing or invalid authorization header"
+    )
+
+
+def test_review_endpoint_rejects_invalid_api_key():
+    response = client.post(
+        "/review/test-owner/test-repo/1",
+        headers={
+            "Authorization": "Bearer wrong-key"
+        },
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid API key"
