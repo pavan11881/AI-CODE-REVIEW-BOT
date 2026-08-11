@@ -1,3 +1,6 @@
 def divide(a, b):
-    result = a / b
-    return result
+    return a / b
+
+
+def calculate_average(total, count):
+    return total / count
