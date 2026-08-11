@@ -22,3 +22,15 @@ def add(a, b):
     result = review_code(code)
 
     assert result
+    
+def test_review_code_handles_ollama_failure():
+    from unittest.mock import patch
+
+    with patch(
+        "app.ai_reviewer.ollama.chat",
+        side_effect=Exception("Ollama unavailable"),
+    ):
+        result = review_code("x = 10 / 2")
+
+    assert "AI REVIEW ERROR" in result
+    assert "Ollama unavailable" in result

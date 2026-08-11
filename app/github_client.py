@@ -7,6 +7,10 @@ load_dotenv()
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 
+if not GITHUB_TOKEN:
+    raise RuntimeError("GITHUB_TOKEN is not configured")
+
+
 HEADERS = {
     "Accept": "application/vnd.github+json",
     "Authorization": f"Bearer {GITHUB_TOKEN}",
@@ -14,47 +18,92 @@ HEADERS = {
 }
 
 
-def get_pull_request(owner: str, repo: str, pull_number: int):
+def get_pull_request(
+    owner: str,
+    repo: str,
+    pull_number: int,
+):
     url = (
         f"https://api.github.com/repos/"
         f"{owner}/{repo}/pulls/{pull_number}"
     )
 
-    response = httpx.get(
-        url,
-        headers=HEADERS,
-    )
+    try:
+        response = httpx.get(
+            url,
+            headers=HEADERS,
+            timeout=30.0,
+        )
 
-    response.raise_for_status()
+        response.raise_for_status()
 
-    return response.json()
+        return response.json()
+
+    except httpx.HTTPStatusError as e:
+        raise RuntimeError(
+            f"GitHub API error {e.response.status_code}: "
+            f"{e.response.text}"
+        ) from e
+
+    except httpx.RequestError as e:
+        raise RuntimeError(
+            f"Failed to connect to GitHub: {e}"
+        ) from e
 
 
 def get_pull_request_files(
     owner: str,
     repo: str,
     pull_number: int,
-    commit_sha: str,
 ):
     """
-    Get files changed in a specific commit.
-
-    This prevents the bot from reviewing every file in the
-    Pull Request when only a new commit was added.
+    Get all files changed in a Pull Request.
+    Handles GitHub API pagination.
     """
 
-    url = (
-        f"https://api.github.com/repos/"
-        f"{owner}/{repo}/commits/{commit_sha}"
-    )
+    files = []
+    page = 1
 
-    response = httpx.get(
-        url,
-        headers=HEADERS,
-    )
+    while True:
+        url = (
+            f"https://api.github.com/repos/"
+            f"{owner}/{repo}/pulls/{pull_number}/files"
+        )
 
-    response.raise_for_status()
+        try:
+            response = httpx.get(
+                url,
+                headers=HEADERS,
+                params={
+                    "page": page,
+                    "per_page": 100,
+                },
+                timeout=30.0,
+            )
 
-    commit_data = response.json()
+            response.raise_for_status()
 
-    return commit_data.get("files", [])
+            page_files = response.json()
+
+            if not page_files:
+                break
+
+            files.extend(page_files)
+
+            if len(page_files) < 100:
+                break
+
+            page += 1
+
+        except httpx.HTTPStatusError as e:
+            raise RuntimeError(
+                f"GitHub API error {e.response.status_code}: "
+                f"{e.response.text}"
+            ) from e
+
+        except httpx.RequestError as e:
+            raise RuntimeError(
+                f"Failed to connect to GitHub: {e}"
+            ) from e
+
+    return files

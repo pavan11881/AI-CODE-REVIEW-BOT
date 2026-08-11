@@ -29,12 +29,12 @@ def test_review_skips_deleted_files():
             "owner",
             "repo",
             1,
-            "abc123",
         )
 
     assert len(result) == 1
     assert result[0]["filename"] == "main.py"
-    mock_review.assert_called_once()
+    assert result[0]["review"] == "Looks good"
+    mock_review.assert_called_once_with("@@ -1 +1 @@\n-old\n+new")
 
 
 def test_review_skips_unsupported_files():
@@ -63,9 +63,9 @@ def test_review_skips_unsupported_files():
             "owner",
             "repo",
             1,
-            "abc123",
         )
 
     assert len(result) == 1
     assert result[0]["filename"] == "main.py"
-    mock_review.assert_called_once()
+    assert result[0]["review"] == "Looks good"
+    mock_review.assert_called_once_with("@@ -1 +1 @@\n-old\n+new")

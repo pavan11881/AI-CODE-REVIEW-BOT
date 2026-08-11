@@ -13,15 +13,12 @@ def _normalize_code(code_diff: str) -> str:
     cleaned_lines = []
 
     for line in lines:
-        # Remove common unified-diff metadata.
         if line.startswith(("+++", "---", "@@")):
             continue
 
-        # Keep added lines from a Git diff.
         if line.startswith("+"):
             cleaned_lines.append(line[1:])
         elif line.startswith("-"):
-            # Deleted lines are not part of the current code.
             continue
         else:
             cleaned_lines.append(line)
@@ -43,8 +40,6 @@ def _detect_division_by_zero_risk(code: str) -> str | None:
         if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Div):
             denominator = node.right
 
-            # Example:
-            # return total / 0
             if isinstance(denominator, ast.Constant):
                 if denominator.value == 0:
                     return (
@@ -58,11 +53,6 @@ def _detect_division_by_zero_risk(code: str) -> str | None:
                         "according to the intended application behavior."
                     )
 
-            # Example:
-            # return total / count
-            #
-            # A variable may contain zero unless the code guarantees
-            # otherwise.
             if isinstance(denominator, ast.Name):
                 return (
                     "### BUG\n\n"
@@ -81,10 +71,10 @@ def _detect_division_by_zero_risk(code: str) -> str | None:
 def review_code(code_diff: str) -> str:
     """
     Review changed code using deterministic checks and Ollama.
-
-    Deterministic checks handle obvious defects reliably.
-    Ollama provides broader code-review analysis.
     """
+    if not code_diff or not code_diff.strip():
+        return "No significant issues found."
+
     code = _normalize_code(code_diff)
 
     deterministic_review = _detect_division_by_zero_risk(code)
@@ -138,22 +128,44 @@ No significant issues found.
 Be concise and technically accurate.
 """
 
-    response = ollama.chat(
-        model="llama3.2:3b",
-        messages=[
-            {
-                "role": "user",
-                "content": prompt,
-            }
-        ],
-    )
+    try:
+        response = ollama.chat(
+            model="llama3.2:3b",
+            messages=[
+                {
+                    "role": "user",
+                    "content": prompt,
+                }
+            ],
+        )
 
-    ai_review = response["message"]["content"].strip()
+        ai_review = (
+            response.get("message", {})
+            .get("content", "")
+            .strip()
+        )
+
+        if not ai_review:
+            ai_review = "No significant issues found."
+
+    except Exception as e:
+        ai_review = (
+            "### AI REVIEW ERROR\n\n"
+            "**Problem:** The AI reviewer could not complete the "
+            "Ollama analysis.\n\n"
+            f"**Reason:** `{type(e).__name__}: {e}`\n\n"
+            "**Recommendation:** Verify that Ollama is running and "
+            "the configured model is available."
+        )
 
     if deterministic_review:
         if ai_review == "No significant issues found.":
             return deterministic_review
 
-        return f"{deterministic_review}\n\n---\n\n### AI Review\n\n{ai_review}"
+        return (
+            f"{deterministic_review}\n\n"
+            "---\n\n"
+            f"### AI Review\n\n{ai_review}"
+        )
 
     return ai_review

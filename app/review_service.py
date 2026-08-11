@@ -36,17 +36,15 @@ def review_pull_request(
     owner: str,
     repo: str,
     pull_number: int,
-    commit_sha: str,
 ):
     """
-    Review only supported source files changed in the specified commit.
+    Review supported source files changed in the Pull Request.
     """
 
     files = get_pull_request_files(
         owner,
         repo,
         pull_number,
-        commit_sha,
     )
 
     reviews = []

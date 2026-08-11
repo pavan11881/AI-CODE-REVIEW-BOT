@@ -46,13 +46,15 @@ def review_pull_request_endpoint(
             owner,
             repo,
             pull_number,
-            commit_sha,
         )
 
         if not reviews:
             return {
                 "message": "No reviewable code changes found.",
-                "reviews": [],
+                "commit_sha": commit_sha,
+                "files_reviewed": 0,
+                "comments_posted": 0,
+                "comments": [],
             }
 
         existing_comments = get_pull_request_comments(
@@ -62,6 +64,7 @@ def review_pull_request_endpoint(
         )
 
         comments = []
+        skipped_files = []
 
         for item in reviews:
             filename = item["filename"]
@@ -77,22 +80,19 @@ def review_pull_request_endpoint(
             )
 
             if already_reviewed:
+                skipped_files.append(filename)
                 continue
 
-            comment = f"""## AI Code Review
-
-### File: `{filename}`
-
-{item['review']}
-
----
-
-**Review metadata**
-
-```text
-{review_marker}
-```
-"""
+            comment = (
+                "## AI Code Review\n\n"
+                f"### File: `{filename}`\n\n"
+                f"{item['review']}\n\n"
+                "---\n\n"
+                "**Review metadata**\n\n"
+                "```text\n"
+                f"{review_marker}\n"
+                "```\n"
+            )
 
             result = post_pull_request_comment(
                 owner,
@@ -108,12 +108,12 @@ def review_pull_request_endpoint(
                 }
             )
 
-        files_reviewed = len({comment["filename"] for comment in comments})
-
         return {
             "message": "Code review completed successfully.",
             "commit_sha": commit_sha,
-            "files_reviewed": files_reviewed,
+            "files_reviewed": len(reviews),
+            "comments_posted": len(comments),
+            "skipped_already_reviewed": len(skipped_files),
             "comments": comments,
         }
 
