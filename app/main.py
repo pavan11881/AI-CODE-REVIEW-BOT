@@ -1,3 +1,4 @@
+import logging
 import os
 import secrets
 
@@ -13,6 +14,8 @@ from app.github_comments import (
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 app = FastAPI(
     title="AI Code Review Bot",
     description="AI-powered GitHub Pull Request code reviewer",
@@ -20,13 +23,16 @@ app = FastAPI(
 )
 
 
-def verify_api_key(authorization: str | None = Header(default=None)):
+def verify_api_key(
+    authorization: str | None = Header(default=None),
+):
     expected_key = os.getenv("AI_REVIEW_API_KEY")
 
     if not expected_key:
+        logger.error("AI_REVIEW_API_KEY is not configured")
         raise HTTPException(
             status_code=500,
-            detail="AI_REVIEW_API_KEY is not configured",
+            detail="Server configuration error",
         )
 
     if not authorization or not authorization.startswith("Bearer "):
@@ -151,8 +157,15 @@ def review_pull_request_endpoint(
     except HTTPException:
         raise
 
-    except Exception as e:
+    except Exception:
+        logger.exception(
+            "Unexpected error while reviewing PR %s/%s#%s",
+            owner,
+            repo,
+            pull_number,
+        )
+
         raise HTTPException(
             status_code=500,
-            detail=str(e),
+            detail="Internal server error",
         )

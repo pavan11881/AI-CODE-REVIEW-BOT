@@ -160,3 +160,19 @@ def test_review_endpoint_rejects_invalid_api_key():
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Invalid API key"
+def test_review_endpoint_hides_internal_errors():
+    with patch(
+        "app.main.get_pull_request",
+        side_effect=Exception("SECRET INTERNAL ERROR"),
+    ):
+        response = client.post(
+            "/review/test-owner/test-repo/1",
+            headers={
+                "Authorization": "Bearer test-key",
+            },
+        )
+
+    assert response.status_code == 500
+    assert response.json() == {
+        "detail": "Internal server error"
+    }
