@@ -105,3 +105,40 @@ def test_get_pull_request_files_handles_commit_sha():
     assert called_url.endswith(
         "/repos/owner/repo/commits/abc123"
     )
+def test_get_file_content_success():
+     from unittest.mock import patch
+
+import base64
+
+encoded_content = base64.b64encode(
+        b"print('hello')\n"
+    ).decode()
+
+mock_response = type(
+        "MockResponse",
+        (),
+        {
+            "raise_for_status": lambda self: None,
+            "json": lambda self: {
+                "encoding": "base64",
+                "content": encoded_content,
+            },
+        },
+    )()
+
+with patch(
+        "app.github_client.httpx.get",
+        return_value=mock_response,
+    ) as mock_get:
+        from app.github_client import get_file_content
+
+        result = get_file_content(
+            "pavan11881",
+            "AI-CODE-REVIEW-BOT",
+            "ai_review_sample.py",
+            "test-commit-sha",
+        )
+
+assert result == "print('hello')\n"
+
+mock_get.assert_called_once()

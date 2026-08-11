@@ -1,6 +1,9 @@
 from dotenv import load_dotenv
 
-from app.github_client import get_pull_request_files
+from app.github_client import (
+    get_file_content,
+    get_pull_request_files,
+)
 from app.ai_reviewer import review_code
 
 load_dotenv()
@@ -40,6 +43,10 @@ def review_pull_request(
 ):
     """
     Review supported source files changed in the specified commit.
+
+    The complete file content at commit_sha is used for deterministic
+    static analysis, while the GitHub patch is still supplied to the
+    AI reviewer so it knows what changed.
     """
 
     files = get_pull_request_files(
@@ -68,7 +75,24 @@ def review_pull_request(
         if not patch:
             continue
 
-        review = review_code(patch)
+        try:
+            file_content = get_file_content(
+                owner,
+                repo,
+                filename,
+                commit_sha,
+            )
+        except RuntimeError:
+            file_content = patch
+
+        review_input = (
+            f"FULL FILE CONTENT:\n"
+            f"{file_content}\n\n"
+            f"CHANGED DIFF:\n"
+            f"{patch}"
+        )
+
+        review = review_code(review_input)
 
         reviews.append(
             {

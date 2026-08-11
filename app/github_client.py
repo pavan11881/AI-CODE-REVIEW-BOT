@@ -125,3 +125,60 @@ def get_pull_request_files(
             ) from e
 
     return files
+
+
+def get_file_content(
+    owner: str,
+    repo: str,
+    path: str,
+    commit_sha: str,
+) -> str:
+    """
+    Get the contents of a file at a specific Git commit.
+    """
+
+    url = (
+        f"https://api.github.com/repos/"
+        f"{owner}/{repo}/contents/{path}"
+    )
+
+    try:
+        response = httpx.get(
+            url,
+            headers=HEADERS,
+            params={"ref": commit_sha},
+            timeout=30.0,
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        if data.get("encoding") != "base64":
+            raise RuntimeError(
+                f"Unsupported GitHub file encoding for {path}"
+            )
+
+        import base64
+
+        content = base64.b64decode(
+            data["content"]
+        ).decode("utf-8")
+
+        return content
+
+    except httpx.HTTPStatusError as e:
+        raise RuntimeError(
+            f"GitHub API error {e.response.status_code}: "
+            f"{e.response.text}"
+        ) from e
+
+    except httpx.RequestError as e:
+        raise RuntimeError(
+            f"Failed to connect to GitHub: {e}"
+        ) from e
+
+    except (KeyError, ValueError, UnicodeDecodeError) as e:
+        raise RuntimeError(
+            f"Failed to decode GitHub file {path}: {e}"
+        ) from e
